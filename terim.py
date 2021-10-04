@@ -7,33 +7,32 @@ import time
 
 from PIL import Image
 
-def gif_walk(gif):
-    frames = []
-    gif.seek(1)
+def next_frame(image):
     try:
-        while True:
-            gif.seek(len(frames))
-            frames.append(gif.copy())
+        image.seek(image.tell() + 1)
     except EOFError:
-        return frames
+        image.seek(0)
+    return image
 
-def display_images(scr, images):
+def display_images(scr, image):
     """Curses function that resizes and displays an image inside a terminal"""
     assert curses.can_change_color() and curses.has_colors()
     curses.start_color()
     scr.nodelay(True)
     curses.noecho()
     last_size = None
-    
-    for frame in itertools.cycle(images):
+
+    is_animated = "loop" in image.info
+
+    while True:
         height, width = scr.getmaxyx()
-        wait = frame.info.get("duration") or 1000//30
+        wait = image.info.get("duration") or 1000//30
         
         # Size changed or screen initialized
-        if (height, width) != last_size or len(images) > 1:
+        if (height, width) != last_size or is_animated:
             start = time.time()
             last_size = (height, width)
-            resized_image = frame.resize((width, height)).convert("P", palette=Image.ADAPTIVE, colors=curses.COLORS - 1)
+            resized_image = image.resize((width, height)).convert("P", palette=Image.ADAPTIVE, colors=curses.COLORS - 1)
             # Create curses color palette
             palette = resized_image.getpalette()
             palette = [palette[i:i + 3] for i in range(0, 3 * (curses.COLORS - 1), 3)]
@@ -56,6 +55,7 @@ def display_images(scr, images):
             wait -= elapsed
         if scr.getch() == ord("q"):
             break
+        next_frame(image)
         curses.napms(wait)
 
 def main():
@@ -64,10 +64,7 @@ def main():
     args = parser.parse_args()
 
     image = Image.open(args.input)
-    if "loop" in image.info:
-        curses.wrapper(display_images, gif_walk(image)) # GIF
-    else:
-        curses.wrapper(display_images, [image])
+    curses.wrapper(display_images, image)
 
 if __name__ == "__main__":
     main()
