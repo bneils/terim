@@ -20,6 +20,7 @@ def display_images(scr, image):
     curses.start_color()
     scr.nodelay(True)
     curses.noecho()
+    curses.curs_set(False)
     last_size = None
 
     is_animated = "loop" in image.info
